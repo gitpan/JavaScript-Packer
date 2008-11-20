@@ -8,7 +8,7 @@ use vars qw/$VERSION $COMMENT $DATA $WHITESPACE $CLEAN $BLOCK $WORD/;
 
 # =========================================================================== #
 
-$VERSION = '0.01';
+$VERSION = '0.0101';
 
 $WORD = qr/([a-zA-Z0-9_]+)/;
 
@@ -324,7 +324,7 @@ sub _encode52 {
 	my $ret = $m > 25 ? chr( $m + 39 ) : chr( $m + 97 );
 	
 	if ( $c >= 52 ) {
-		$ret = _encode52( int( $c / 52 ) ) . $ret;
+		$ret = _encode52( sprintf( "%d", ( $c / 52 ) ) ) . $ret;
 	}
 	
 	return $ret;
@@ -338,7 +338,7 @@ sub _encode62 {
 	my $ret = $m > 35 ? chr( $m + 29 ) : $m > 9 ? chr( $m + 87 ) : $m;
 	
 	if ( $c >= 62 ) {
-		$ret = _encode62( int( $c / 62 ) ) . $ret;
+		$ret = _encode62( sprintf( "%d", ( $c / 62 ) ) ) . $ret;
 	}
 	
 	return $ret;
@@ -357,7 +357,6 @@ JavaScript::Packer - Perl version of Dean Edwards' Packer.js
 Version 0.01
 
 =cut
-
 
 =head1 SYNOPSIS
 

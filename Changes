@@ -5,4 +5,9 @@ Revision history for JavaScript-Packer
 
 0.0101	2008-11-20
 	Replaced int() by sprintf() for perl 5.6
+	
+0.0102	2008-11-24
+	- Former changes didn't work. Undone these changes. I'm sorry
+	for that. This will not happen again.
+	- Changed requirements to perl 5.8.
 

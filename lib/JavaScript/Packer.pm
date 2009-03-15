@@ -9,9 +9,9 @@ use vars qw/$VERSION $COMMENT $DATA $WHITESPACE $CLEAN $BLOCK $WORD/;
 
 # =========================================================================== #
 
-$VERSION = '0.0102';
+$VERSION = '0.01_01';
 
-$WORD = qr/([a-zA-Z0-9_]+)/;
+$WORD = qr/((?>[a-zA-Z0-9_]+))/;
 
 $BLOCK = qr/(function\s*[a-zA-Z0-9_\x24]*\s*\(\s*(([a-zA-Z0-9_\x24][a-zA-Z0-9_\x24, ]*[a-zA-Z0-9_\x24])*)\s*\)\s*)?(\{([^{}]*)\})/;
 
@@ -28,20 +28,20 @@ $COMMENT = [
 
 $DATA = [
 	{
-		'regexp'	=> qr/('(\\.|[^'\\])*'|"(\\.|[^"\\])*")/,
-		'replacement'	=> '$&'
-	},
-	{
-		'regexp'	=> qr/\/\*@|@\*\/|\/\/@[^\n]*\n/,
-		'replacement'	=> '$&'
-	},
-	{
 		'regexp'	=> qr/\s+(\/(\\[\/\\]|[^*\/])(\\.|[^\/\n\\])*\/[gim]*)/,
 		'replacement'	=> 'sprintf( "%s", $1 )'
 	},
 	{
 		'regexp'	=> qr/([^a-zA-Z0-9_\x24\/'"*)\?:])(\/(\\[\/\\]|[^*\/])(\\.|[^\/\n\\])*\/[gim]*)/,
 		'replacement'	=> 'sprintf( "%s%s", $1, $2 )'
+	},
+	{
+		'regexp'	=> qr/"(?>(?:(?>[^"\\]+)|\\.|\\")*)"|'(?>(?:(?>[^'\\]+)|\\.|\\')*)'/,
+		'replacement'	=> '$&'
+	},
+	{
+		'regexp'	=> qr/\/\*@|@\*\/|\/\/@[^\n]*\n/,
+		'replacement'	=> '$&'
 	}
 ];
 
@@ -90,34 +90,50 @@ $CLEAN = [
 # =========================================================================== #
 
 sub minify {
-	my ( $scalarref, $opts ) = @_;
+	my ( $input, $opts ) = @_;
 	
-	if ( ref( $scalarref ) ne 'SCALAR' ) {
-		carp( 'First argument must be a scalarref!' );
-		return '';
+	if ( ref( $input ) and ref( $input ) ne 'SCALAR' ) {
+		carp( 'First argument must be a scalar or scalarref!' );
+		return undef;
 	}
 	
-	return '' if ( ${$scalarref} eq '' );
+	my $javascript = ref( $input ) ? $input : \$input;
 	
 	if ( ref( $opts ) ne 'HASH' ) {
 		carp( 'Second argument must be a hashref of options! Using defaults!' ) if ( $opts );
-		$opts = { 'compress' => 'minify', 'copyright' => '' };
+		$opts = { 'compress' => 'clean', 'copyright' => '' };
 	}
 	else {
-		$opts->{'compress'}	= grep( $opts->{'compress'}, ( 'minify', 'shrink', 'base62' ) ) ? $opts->{'compress'} : 'minify';
-		$opts->{'copyright'}	= ( $opts->{'copyright'} and $opts->{'compress'} eq 'minify' ) ? ( '/* ' . $opts->{'copyright'} . ' */' ) : '';
+		$opts->{'compress'} ||= 'clean';
+		unless (
+			grep(
+				$_ eq $opts->{'compress'},
+				( 'clean', 'minify', 'shrink', 'base62', 'obfuscate', 'best' )
+			)
+		) {
+			$opts->{'compress'} = 'clean';
+		}
+		
+		if ( $opts->{'compress'} eq 'minify' ) {
+			$opts->{'compress'} = 'clean';
+		}
+		elsif ( $opts->{'compress'} eq 'base62' ) {
+			$opts->{'compress'} = 'obfuscate';
+		}
+		
+		$opts->{'copyright'}	= ( $opts->{'copyright'} and $opts->{'compress'} eq 'clean' ) ? ( '/* ' . $opts->{'copyright'} . ' */' ) : '';
 	}
 	
 	my $data	= [];
 	
-	${$scalarref} =~ s/~jmv_\d+~/ /;
-	${$scalarref} =~ s/~jmb_\d+~/ /;
+	${$javascript} =~ s/~jmv_\d+~/ /;
+	${$javascript} =~ s/~jmb_\d+~/ /;
 	
-	${$scalarref} =~ s/\\\r?\n//gsm;
-	${$scalarref} =~ s/\r//gsm;
+	${$javascript} =~ s/\\\r?\n//gsm;
+	${$javascript} =~ s/\r//gsm;
 	
-	my $_store = sub {
-		my ( $regexp, $match, $data ) = @_;
+	local *_store = sub {
+		my ( $regexp, $match ) = @_;
 		
 		my @match = $match =~ /$regexp->{'regexp'}/;
 		my $replacement = $regexp->{'replacement'};
@@ -145,6 +161,11 @@ sub minify {
 			$ret = $1 . $ret;
 			$store = $2;
 		}
+	
+		foreach my $regexp ( @$DATA ) {
+			next unless ( $regexp->{'regexp'} and $store !~ /$regexp->{'regexp'}/ );
+			$store =~ s/$regexp->{'regexp'}/_store( $regexp, $& )/egsm;
+		}
 		
 		push( @{$data}, $store );
 		
@@ -153,39 +174,39 @@ sub minify {
 	
 	foreach my $regexp ( @$DATA ) {
 		next unless ( $regexp->{'regexp'} );
-		${$scalarref} =~ s/$regexp->{'regexp'}/&$_store( $regexp, $&, $data )/egsm;
+		${$javascript} =~ s/$regexp->{'regexp'}/_store( $regexp, $& )/egsm;
 	}
 	
 	foreach my $regexp ( @$COMMENT ) {
 		next unless ( $regexp->{'regexp'} );
-		${$scalarref} =~ s/$regexp->{'regexp'}/ /gsm;
+		${$javascript} =~ s/$regexp->{'regexp'}/ /gsm;
 	}
 	
 	foreach my $regexp ( @$WHITESPACE ) {
 		next unless ( $regexp->{'regexp'} );
-		${$scalarref} =~ s/$regexp->{'regexp'}/&$_store( $regexp, $&, $data )/egsm;
+		${$javascript} =~ s/$regexp->{'regexp'}/_store( $regexp, $& )/egsm;
 	}
 	
 	foreach my $regexp ( @$CLEAN ) {
 		next unless ( $regexp->{'regexp'} );
-		${$scalarref} =~ s/$regexp->{'regexp'}/&$_store( $regexp, $&, $data )/egsm;
+		${$javascript} =~ s/$regexp->{'regexp'}/_store( $regexp, $& )/egsm;
 	}
 	
-	while ( ${$scalarref} =~ /~jmv_(\d+)~/ ) {
-		${$scalarref} =~ s/~jmv_(\d+)~/$data->[$1]/eg;
+	while ( ${$javascript} =~ /~jmv_(\d+)~/ ) {
+		${$javascript} =~ s/~jmv_(\d+)~/$data->[$1]/eg;
 	}
 	
-	if ( $opts->{'compress'} eq 'shrink' or $opts->{'compress'} eq 'base62' ) {
+	if ( $opts->{'compress'} ne 'clean' ) {
 		my $block	= [];
 		$data		= [];
 		
 		foreach my $regexp ( @$DATA ) {
 			next unless ( $regexp->{'regexp'} );
-			${$scalarref} =~ s/$regexp->{'regexp'}/&$_store( $regexp, $&, $data )/egsm;
+			${$javascript} =~ s/$regexp->{'regexp'}/_store( $regexp, $& )/egsm;
 		}
 		
-		my $_decode = sub {
-			my ( $match, $block ) = @_;
+		local *_decode = sub {
+			my $match = shift;
 			
 			while ( $match =~ /~jmb_\d+~/ ) {
 				$match =~ s/~jmb_(\d+)~/$block->[$1]/eg;
@@ -194,17 +215,31 @@ sub minify {
 			return $match;
 		};
 		
-		my $_encode = sub {
-			my ( $match, $block ) = @_;
+		local *_encode = sub {
+			my $match = shift;
 			
 			my ( $func, undef, $args ) = $match =~ /$BLOCK/;
 			
 			if ( $func ) {
-				$match = &$_decode( $match, $block );
+				$match = _decode( $match );
 				
 				$args ||= '';
 				
-				my %block_vars = map { $_ => 1 } ( $match =~ /var\s+([a-zA-Z0-9_\x24]+)[^a-zA-Z0-9_\x24]/g ), split( /\s*,\s*/, $args );
+				my %block_vars = map { $_ => 1 } ( $match =~ /var\s+((?>[a-zA-Z0-9_\x24]+))/g ), split( /\s*,\s*/, $args );
+
+				local *_encode52 = sub {
+					my $c = shift;
+					
+					my $m = $c % 52;
+					
+					my $ret = $m > 25 ? chr( $m + 39 ) : chr( $m + 97 );
+					
+					if ( $c >= 52 ) {
+						$ret = _encode52( int( $c / 52 ) ) . $ret;
+					}
+					
+					return $ret;
+				};
 				
 				my $cnt = 0;
 				foreach my $block_var ( keys( %block_vars ) ) {
@@ -213,8 +248,8 @@ sub minify {
 						while ( $match =~ /[^a-zA-Z0-9_\x24\.]\Q$short_id\E[^a-zA-Z0-9_\x24:]/ ) {
 							$short_id = _encode52( $cnt++ );
 						}
-							$match =~ s/([^a-zA-Z0-9_\x24\.])\Q$block_var\E([^a-zA-Z0-9_\x24:])/sprintf( "%s%s%s", $1, $short_id, $2 )/eg;
-						$match =~ s/([^\{,a-zA-Z0-9_\x24\.])\Q$block_var\E:/sprintf( '%s%s:', $1, $short_id )/eg;
+						$match =~ s/(?<![a-zA-Z0-9_\x24\.])\Q$block_var\E(?![a-zA-Z0-9_\x24:])/$short_id/g;
+						$match =~ s/(?<![\{,a-zA-Z0-9_\x24\.])\Q$block_var\E:/sprintf( '%s:', $short_id )/eg;
 					}
 				}
 			}
@@ -226,24 +261,24 @@ sub minify {
 			return $ret;
 		};
 		
-		while( ${$scalarref} =~ /$BLOCK/ ) {
-			${$scalarref} =~ s/$BLOCK/&$_encode( $&, $block )/egsm;
+		while( ${$javascript} =~ /$BLOCK/ ) {
+			${$javascript} =~ s/$BLOCK/_encode( $& )/egsm;
 		}
 		
-		${$scalarref} = &$_decode( ${$scalarref}, $block );
+		${$javascript} = _decode( ${$javascript} );
 		
-		while ( ${$scalarref} =~ /~jmv_(\d+)~/ ) {
-			${$scalarref} =~ s/~jmv_(\d+)~/$data->[$1]/egsm;
+		while ( ${$javascript} =~ /~jmv_(\d+)~/ ) {
+			${$javascript} =~ s/~jmv_(\d+)~/$data->[$1]/egsm;
 		}
 	}
 	else {
-		${$scalarref} = $opts->{'copyright'} . ${$scalarref} if ( $opts->{'copyright'} );
+		${$javascript} = $opts->{'copyright'} . ${$javascript} if ( $opts->{'copyright'} );
 	}
 	
-	if ( $opts->{'compress'} eq 'base62' ) {
+	if ( $opts->{'compress'} eq 'obfuscate' or $opts->{'compress'} eq 'best' ) {
 		my $words = {};
 		
-		my @words = ${$scalarref} =~ /$WORD/g;
+		my @words = ${$javascript} =~ /$WORD/g;
 		
 		my $idx = 0;
 		
@@ -262,17 +297,34 @@ sub minify {
 				next WORD;
 			}
 			
+			local *_encode62 = sub {
+				my $c = shift;
+				
+				my $m = $c % 62;
+				
+				my $ret = $m > 35 ? chr( $m + 29 ) : $m > 9 ? chr( $m + 87 ) : $m;
+				
+				if ( $c >= 62 ) {
+					$ret = _encode62( int( $c / 62 ) ) . $ret;
+				}
+				
+				return $ret;
+			};
+			
 			my $encoded = _encode62( $idx );
 			
 			if ( exists( $words->{$encoded} ) ) {
 				my $next = 0;
 				if ( exists( $words->{$encoded}->{'encoded'} ) ) {
+					my %enc = %{$words->{$encoded}};
 					$words->{$word}->{'encoded'} = $words->{$encoded}->{'encoded'};
 					$words->{$word}->{'index'} = $words->{$encoded}->{'index'};
+					$words->{$word}->{'minus'} = length( $word ) - length( $words->{$word}->{'encoded'} );
 					$next = 1;
 				}
 				$words->{$encoded}->{'encoded'} = $encoded;
 				$words->{$encoded}->{'index'} = $idx;
+				$words->{$encoded}->{'minus'} = 0;
 				$idx++;
 				next WORD if ( $next );
 				redo WORD;
@@ -280,23 +332,35 @@ sub minify {
 			
 			$words->{$word}->{'encoded'} = $encoded;
 			$words->{$word}->{'index'} = $idx;
+			$words->{$word}->{'minus'} = length( $word ) - length( $encoded );
 			
 			$idx++;
 		}
 		
-		${$scalarref} =~ s/$WORD/sprintf( "%s", $words->{$1}->{'encoded'} )/eg;
+		my $packed_length = length( ${$javascript} );
 		
-		${$scalarref} =~ s/([\\'])/\\$1/g;
+		map {
+			$packed_length -= ( $words->{$_}->{'count'} * $words->{$_}->{'minus'} );
+		} keys( %{$words} );
 		
-		${$scalarref} =~ s/[\r\n]+/\\n/g;
+		my $pc = scalar( keys( %{$words} ) );
+		$packed_length += length( $pc );
 		
-		my $w_cnt = scalar( keys( %{$words} ) );
+		my $pa = $pc > 2 ? $pc < 62 ? $pc : 62 : 2;
+		$packed_length += length( $pa );
 		
-		my $pp = ${$scalarref};
-		my $pa = $w_cnt > 2 ? $w_cnt < 62 ? $w_cnt : 62 : 2;
-		my $pc = $w_cnt;
-		my $pk = join( '|', map { $words->{$_}->{'encoded'} ne $_ ? $_ : '' } sort { $words->{$a}->{'index'} <=> $words->{$b}->{'index'} } keys( %{$words} ) );
+		my $pk = join(
+			'|',
+			map {
+				$words->{$_}->{'encoded'} ne $_ ? $_ : '';
+			} sort { 
+				$words->{$a}->{'index'} <=> $words->{$b}->{'index'}
+			} keys( %{$words} )
+		);
+		$packed_length += length( $pk );
+		
 		my $pe = 'String';
+		
 		my $pr = 'c';
 		
 		if ( $pa > 10 ) {
@@ -308,41 +372,34 @@ sub minify {
 		if ( $pa > 36 ) {
 			$pe = q~function(c){return(c<a?'':e(parseInt(c/a)))+((c=c%a)>35?String.fromCharCode(c+29):c.toString(36))}~;
 		}
+		$packed_length += length( $pe );
+		$packed_length += length( $pr ) * 2;
 		
 		my $f_str = q~eval(function(p,a,c,k,e,r){e=%s;if(!''.replace(/^/,String)){while(c--)r[%s]=k[c]~;
 		$f_str .= q~||%s;k=[function(e){return r[e]}];e=function(){return'\\\\w+'};c=1};while(c--)if(k[c])p=p.~;
 		$f_str .= q~replace(new RegExp('\\\\b'+e(c)+'\\\\b','g'),k[c]);return p}('%s',%s,%s,'%s'.split('|'),0,{}))~;
 		
-		${$scalarref} = sprintf( $f_str, $pe, $pr, $pr, $pp, $pa, $pc, $pk );
+		$packed_length += length( $f_str );
+		$packed_length -= ( $f_str =~ s/%s/%s/g ) * 2;
+		
+		map {
+			$packed_length -= length( $_ ) - 3;
+		} ${$javascript} =~ s/((?>[\r\n]+))/$1/g;
+		
+		$packed_length += ${$javascript} =~ tr/\\\'/\\\'/;
+		
+		if ( $opts->{'compress'} eq 'obfuscate' or $packed_length <= length( ${$javascript} ) ) {
+		
+			${$javascript} =~ s/$WORD/sprintf( "%s", $words->{$1}->{'encoded'} )/eg;
+			
+			${$javascript}	=~ s/([\\'])/\\$1/g;
+			${$javascript}	=~ s/[\r\n]+/\\n/g;
+			
+			my $pp = ${$javascript};
+			
+			${$javascript} = sprintf( $f_str, $pe, $pr, $pr, $pp, $pa, $pc, $pk );
+		}
 	}
-}
-
-sub _encode52 {
-	my $c = shift;
-	
-	my $m = $c % 52;
-	
-	my $ret = $m > 25 ? chr( $m + 39 ) : chr( $m + 97 );
-	
-	if ( $c >= 52 ) {
-		$ret = _encode52( int( $c / 52 ) ) . $ret;
-	}
-	
-	return $ret;
-}
-
-sub _encode62 {
-	my $c = shift;
-	
-	my $m = $c % 62;
-	
-	my $ret = $m > 35 ? chr( $m + 29 ) : $m > 9 ? chr( $m + 87 ) : $m;
-	
-	if ( $c >= 62 ) {
-		$ret = _encode62( int( $c / 62 ) ) . $ret;
-	}
-	
-	return $ret;
 }
 
 1;
@@ -355,7 +412,7 @@ JavaScript::Packer - Perl version of Dean Edwards' Packer.js
 
 =head1 VERSION
 
-Version 0.01
+Version 0.01_01
 
 =cut
 
@@ -369,7 +426,7 @@ Take a look at http://dean.edwards.name/packer/
 
 use JavaScript::Packer;
 
-JavaScript::Packer::minify( $scalarref, $opts );
+JavaScript::Packer::minify( $javascript, $opts );
 
 First argument must be a scalarref of JavaScript-Code.
 Second argument must be a hashref of options. Possible options are
@@ -378,13 +435,18 @@ Second argument must be a hashref of options. Possible options are
 
 =item compress
 
-Defines compression level. Possible values are 'minify', 'shrink' and 'base62'.
-Default value is 'minify'.
+Defines compression level. Possible values are 'clean', 'shrink',
+'obfuscate' and 'best'.
+Default value is 'clean'.
+'best' uses 'shrink' or 'obfuscate' depending on which result is shorter. This is
+because short scripts will grow if compression level is 'obfuscate'.
+
+For backward compatibility 'minify' and 'base62' will still work.
 
 =item copyright
 
 You can add a copyright notice on top of the script. The copyright notice will
-only be added if the compression value is 'minify'.
+only be added if the compression value is 'clean'.
 
 =back
 
@@ -407,7 +469,7 @@ perldoc JavaScript::Packer
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2008 Merten Falk, all rights reserved.
+Copyright 2009 Merten Falk, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

@@ -8,7 +8,7 @@
 
 use Test::More;
 
-my $not = 6;
+my $not = 8;
 
 SKIP: {
 	eval( 'use JavaScript::Packer' );
@@ -17,9 +17,11 @@ SKIP: {
 	
 	plan tests => $not;
 	
-	minTest( 's1', 'minify' );
-	minTest( 's2', 'shrink' );
-	minTest( 's3', 'base62' );
+	fileTest( 's1', 'clean', 'compression level "clean"' );
+	fileTest( 's2', 'shrink', 'compression level "shrink"' );
+	fileTest( 's3', 'obfuscate', 'compression level "obfuscate"' );
+	fileTest( 's4', 'best', 'compression level "best" whith short javascript' );
+	fileTest( 's5', 'best', 'compression level "best" whith long javascript' );
 	
 	my $var = 'var x = 2;';
 	JavaScript::Packer::minify( \$var );
@@ -55,9 +57,10 @@ sub filesMatch {
 	}
 }
 
-sub minTest {
-	my $filename = shift;
-	my $compress = shift || 'minify';
+sub fileTest {
+	my $filename	= shift;
+	my $compress	= shift || 'minify';
+	my $comment	= shift || '';
 	
 	open(INFILE, 't/scripts/' . $filename . '.js') or die("couldn't open file");
 	open(GOTFILE, '>t/scripts/' . $filename . '-got.js') or die("couldn't open file");
@@ -70,7 +73,7 @@ sub minTest {
 	
 	open(EXPECTEDFILE, 't/scripts/' . $filename . '-expected.js') or die("couldn't open file");
 	open(GOTFILE, 't/scripts/' . $filename . '-got.js') or die("couldn't open file");
-	ok(filesMatch(GOTFILE, EXPECTEDFILE));
+	ok( filesMatch(GOTFILE, EXPECTEDFILE), $comment );
 	close(EXPECTEDFILE);
 	close(GOTFILE);
 }

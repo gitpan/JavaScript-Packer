@@ -13,4 +13,6 @@ t/scripts/s2-expected.js
 t/scripts/s2.js
 t/scripts/s3-expected.js
 t/scripts/s3.js
+t/scripts/s4-expected.js
+t/scripts/s4.js
 META.yml                                 Module meta-data (added by MakeMaker)

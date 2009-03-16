@@ -9,7 +9,7 @@ use vars qw/$VERSION $COMMENT $DATA $WHITESPACE $CLEAN $BLOCK $WORD/;
 
 # =========================================================================== #
 
-$VERSION = '0.01_01';
+$VERSION = '0.01_02';
 
 $WORD = qr/((?>[a-zA-Z0-9_]+))/;
 
@@ -412,7 +412,7 @@ JavaScript::Packer - Perl version of Dean Edwards' Packer.js
 
 =head1 VERSION
 
-Version 0.01_01
+Version 0.01_02
 
 =cut
 

@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                JavaScript-Packer
-version:             0.01_02
+version:             0.02
 abstract:            Perl version of Dean Edwards' Packer.js
 license:             perl
 author:              

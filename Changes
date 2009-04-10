@@ -1,9 +1,12 @@
 Revision history for JavaScript-Packer
 
-0.01_02 2009-03-16
+0.02	2009-04-10
+	- Changed version number
+
+0.01_02	2009-03-16
 	- Bugfix
 
-0.01_01 2009-03-15
+0.01_01	2009-03-15
 	- Changed compression level names
 	- Added compression level 'best'
 	- Updated some regular expressions

@@ -1,3 +1,5 @@
+.cvsignore
+.gitignore
 Changes
 lib/JavaScript/Packer.pm
 Makefile.PL

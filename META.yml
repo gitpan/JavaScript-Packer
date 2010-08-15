@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               JavaScript-Packer
-version:            0.0401
+version:            0.05_01
 abstract:           Perl version of Dean Edwards' Packer.js
 author:
     - Merten Falk <nevesenin@cpan.org>
@@ -8,17 +8,16 @@ license:            perl
 distribution_type:  module
 configure_requires:
     ExtUtils::MakeMaker:  0
-build_requires:
-    ExtUtils::MakeMaker:  0
 requires:
-    Test::More:  0
+    Regexp::RegGrp:  0
+    Test::More:      0
 resources:
     repository:  http://github.com/nevesenin/javascript-packer-perl
 no_index:
     directory:
         - t
         - inc
-generated_by:       ExtUtils::MakeMaker version 6.56
+generated_by:       ExtUtils::MakeMaker version 6.48
 meta-spec:
     url:      http://module-build.sourceforge.net/META-spec-v1.4.html
     version:  1.4

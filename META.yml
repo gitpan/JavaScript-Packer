@@ -1,0 +1,29 @@
+---
+abstract: "Perl version of Dean Edwards' Packer.js"
+author:
+  - 'Merten Falk, C<< <nevesenin at cpan.org> >>'
+build_requires:
+  ExtUtils::MakeMaker: 6.42
+  Test::More: 0
+configure_requires:
+  ExtUtils::MakeMaker: 6.42
+distribution_type: module
+generated_by: 'Module::Install version 1.01'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+module_name: JavaScript::Packer
+name: JavaScript-Packer
+no_index:
+  directory:
+    - inc
+    - t
+requires:
+  Regexp::RegGrp: 1.001_001
+  perl: 5.8.9
+resources:
+  bugtracker: http://github.com/nevesenin/javascript-packer-perl/issues
+  license: http://dev.perl.org/licenses/
+  repository: http://github.com/nevesenin/javascript-packer-perl
+version: 1.003_002

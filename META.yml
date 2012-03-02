@@ -27,4 +27,4 @@ resources:
   bugtracker: http://github.com/nevesenin/javascript-packer-perl/issues
   license: http://dev.perl.org/licenses/
   repository: http://github.com/nevesenin/javascript-packer-perl
-version: 1.006002
+version: 1.006003
